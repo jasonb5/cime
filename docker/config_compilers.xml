@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <config_compilers version="2.0">
-	<compiler MACH="docker-mamba" COMPILER="gnu-mamba">
+	<compiler MACH="docker" COMPILER="gnu-mamba">
 		<AR>/opt/conda/bin/x86_64-conda-linux-gnu-ar</AR>
 		<CFLAGS>
 			<base> -mcmodel=medium </base>

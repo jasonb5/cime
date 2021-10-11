@@ -82,12 +82,17 @@ ENV USER=root
 ENV CIME_MODEL=e3sm
 ENV PNETCDF_VERSION=1.12.1
 
+SHELL ["/bin/bash", "-c"]
+
 WORKDIR /root
 
 RUN git clone https://github.com/E3SM-Project/E3SM && \
       cd E3SM && \
       sed -i"" "s/git@github.com:/https:\/\/github.com\//g" .gitmodules && \
-      git submodule update --init
+      git submodule update --init && \
+      find /root/E3SM -type f -iname Makefile -exec grep -nH '$(AR) $@' {} \; | \
+          cut -d":" -f1 | \
+          xargs sed -i'' 's/$(AR) $@/$(AR) rc $@/g'
 
 RUN mamba install -c conda-forge \
       libnetcdf=*=*openmpi* \
@@ -103,12 +108,14 @@ RUN mamba install -c conda-forge \
       gfortran_linux-64 \
       openmpi-mpifort
 
-SHELL ["/bin/bash", "-c"]
+RUN ln -sf /opt/conda/bin/x86_64-conda-linux-gnu-ar /opt/conda/bin/ar && \
+          ln -sf /opt/conda/bin/x86_64-conda-linux-gnu-ranlib /opt/conda/bin/ranlib
 
 RUN curl -L -k -o pnetcdf.tar.gz \
       https://parallel-netcdf.github.io/Release/pnetcdf-${PNETCDF_VERSION}.tar.gz && \
       mkdir "${PWD}/pnetcdf" && \
       tar -xvf "${PWD}/pnetcdf.tar.gz" -C "${PWD}/pnetcdf" --strip-components=1 && \
+      rm -rf "${PWD}/pnetcdf.tar.gz" && \
       cd "${PWD}/pnetcdf" && \
       source /opt/conda/etc/profile.d/conda.sh && \
       conda activate base && \
@@ -118,14 +125,8 @@ RUN curl -L -k -o pnetcdf.tar.gz \
       MPIF77=/opt/conda/bin/mpif77 \
       MPIF90=/opt/conda/bin/mpif90 && \
       make -j4 && \
-      make install
-
-RUN find /root/E3SM -type f -iname Makefile -exec grep -nH '$(AR) $@' {} \; | \
-          cut -d":" -f1 | \
-          xargs sed -i'' 's/$(AR) $@/$(AR) rc $@/g'
-
-RUN ln -sf /opt/conda/bin/x86_64-conda-linux-gnu-ar /opt/conda/bin/ar && \
-          ln -sf /opt/conda/bin/x86_64-conda-linux-gnu-ranlib /opt/conda/bin/ranlib
+      make install && \
+      rm -rf "${PWD}/pnetcdf"
 
 WORKDIR /root/E3SM/cime/scripts
 
