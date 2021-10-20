@@ -1,134 +1,111 @@
-FROM ubuntu:20.10 as cesm
+FROM condaforge/mambaforge:latest AS base
 
-ENV USER=root
-ENV CIME_MODEL=cesm
-ENV NETCDF_FORTRAN_VERSION=4.5.2
-ENV PNETCDF_VERSION=1.12.1
-ENV PATH=/build/local/bin:$PATH
+ARG PNETCDF_VERSION=1.12.1
+ENV PNETCDF_VERSION=${PNETCDF_VERSION}
 
-ARG DEBIAN_FRONTEND=noninteractive
+SHELL ["/bin/bash", "-c"] 
+RUN mamba install --yes -c conda-forge \
+            libnetcdf=*=*openmpi* \
+            netcdf-fortran=*=*openmpi* \
+            cmake \
+            make \
+            wget \
+            curl \
+            subversion \
+            m4 \
+            gcc_linux-64 \
+            gxx_linux-64 \
+            gfortran_linux-64 \
+            openmpi-mpifort \
+            openssh && \
+            rm -rf /opt/conda/pkgs/* && \
+            ln -sf /opt/conda/bin/x86_64-conda-linux-gnu-ar /opt/conda/bin/ar && \
+            ln -sf /opt/conda/bin/x86_64-conda-linux-gnu-ranlib /opt/conda/bin/ranlib && \
+            curl -L -k -o "${PWD}/pnetcdf.tar.gz" \
+            https://parallel-netcdf.github.io/Release/pnetcdf-${PNETCDF_VERSION}.tar.gz && \
+            mkdir "${PWD}/pnetcdf" && \
+            tar -xvf "${PWD}/pnetcdf.tar.gz" -C "${PWD}/pnetcdf" --strip-components=1 && \
+            rm -rf "${PWD}/pnetcdf.tar.gz" && \
+            cd "${PWD}/pnetcdf" && \
+            source /opt/conda/etc/profile.d/conda.sh && \
+            conda activate base && \
+            ./configure --prefix /opt/conda --disable-cxx --enable-shared \
+            MPICC=/opt/conda/bin/mpicc \
+            MPICXX=/opt/conda/bin/mpicxx \
+            MPIF77=/opt/conda/bin/mpif77 \
+            MPIF90=/opt/conda/bin/mpif90 && \
+            make -j4 && \
+            make install && \
+            rm -rf "${PWD}/pnetcdf"
 
-WORKDIR /build
-
-RUN apt update && \
-      apt install -y --no-install-recommends \
-        python3 \
-        git \
-        vim \
-        build-essential \
-        gcc-9 \
-        g++-9 \
-        gfortran-9 \
-        openmpi-bin \
-        libopenmpi-dev \
-        libcurl4-openssl-dev \
-        libnetcdf-dev \
-        netcdf-bin \
-        libxml2-utils \
-        pylint \
-        cmake \
-        curl \
-        wget \
-        subversion \
-        ca-certificates \
-      pkg-config && \
-      rm -rf /var/lib/apt/lists && \
-      update-alternatives --install /usr/bin/python python /usr/bin/python3 10 && \
-      update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-9 10 && \
-      update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-9 10 && \
-      update-alternatives --install /usr/bin/gfortran gfortran /usr/bin/gfortran-9 10 && \
-      curl -L -k -o netcdf-fortran.tar.gz \
-      https://github.com/Unidata/netcdf-fortran/archive/refs/tags/v${NETCDF_FORTRAN_VERSION}.tar.gz && \
-      mkdir "${PWD}/netcdf-fortran" && \
-      tar -xvf "${PWD}/netcdf-fortran.tar.gz" -C "${PWD}/netcdf-fortran" --strip-components=1 && \
-      cd "${PWD}/netcdf-fortran" && \
-      ./configure --prefix=/usr/local && \
-      make && \
-      make install && \
-      curl -L -k -o pnetcdf.tar.gz \
-      https://parallel-netcdf.github.io/Release/pnetcdf-${PNETCDF_VERSION}.tar.gz && \
-      mkdir "${PWD}/pnetcdf" && \
-      tar -xvf "${PWD}/pnetcdf.tar.gz" -C "${PWD}/pnetcdf" --strip-components=1 && \
-      cd "${PWD}/pnetcdf" && \
-      ./configure --prefix=/usr/local --enable-shared --disable-cxx && \
-      make && \
-      make install 
-#       cd "/build/local/include" && \
-#       ln -sf /usr/include/*netcdf* . && \
-#       cd "/build/local/lib" && \
-#       ln -sf `nc-config --libdir`/lib* .
-
-WORKDIR /root
-
-RUN git clone https://github.com/ESMCI/cime && \
-      cd cime && \
-      git clone https://github.com/ESCOMP/CMEPS components/cmeps && \
-      git clone https://github.com/ESCOMP/CDEPS components/cdeps && \
-      git clone https://github.com/ESCOMP/CESM_CPL7andDataComps components/cpl7 && \
-      git clone https://github.com/ESCOMP/CESM_share share/ && \
-      git clone https://github.com/MCSclimate/MCT libraries/mct && \
-      git clone https://github.com/NCAR/ParallelIO libraries/parallelio
-
-RUN mkdir  ~/.cime
-
-WORKDIR /root/cime/scripts
-
-COPY config_machines.xml /root/cime_config/machines/
-COPY config_compilers.xml /root/cime_config/machines/
-
-FROM condaforge/mambaforge:latest AS e3sm
-
-ENV USER=root
-ENV CIME_MODEL=e3sm
-ENV PNETCDF_VERSION=1.12.1
-
-SHELL ["/bin/bash", "-c"]
-
-WORKDIR /root
-
-RUN git clone https://github.com/E3SM-Project/E3SM && \
-      cd E3SM && \
-      sed -i"" "s/git@github.com:/https:\/\/github.com\//g" .gitmodules && \
-      git submodule update --init && \
-      find /root/E3SM -type f -iname Makefile -exec grep -nH '$(AR) $@' {} \; | \
-          cut -d":" -f1 | \
-          xargs sed -i'' 's/$(AR) $@/$(AR) rc $@/g'
-
-RUN mamba install -c conda-forge \
-      libnetcdf=*=*openmpi* \
-      netcdf-fortran=*=*openmpi* \
-      cmake \
-      make \
-      wget \
-      curl \
-      subversion \
-      m4 \
-      gcc_linux-64 \
-      gxx_linux-64 \
-      gfortran_linux-64 \
-      openmpi-mpifort
-
-RUN ln -sf /opt/conda/bin/x86_64-conda-linux-gnu-ar /opt/conda/bin/ar && \
-          ln -sf /opt/conda/bin/x86_64-conda-linux-gnu-ranlib /opt/conda/bin/ranlib
-
-RUN curl -L -k -o pnetcdf.tar.gz \
-      https://parallel-netcdf.github.io/Release/pnetcdf-${PNETCDF_VERSION}.tar.gz && \
-      mkdir "${PWD}/pnetcdf" && \
-      tar -xvf "${PWD}/pnetcdf.tar.gz" -C "${PWD}/pnetcdf" --strip-components=1 && \
-      rm -rf "${PWD}/pnetcdf.tar.gz" && \
-      cd "${PWD}/pnetcdf" && \
-      source /opt/conda/etc/profile.d/conda.sh && \
-      conda activate base && \
-      ./configure --prefix /opt/conda --disable-cxx --enable-shared \
-      MPICC=/opt/conda/bin/mpicc \
-      MPICXX=/opt/conda/bin/mpicxx \
-      MPIF77=/opt/conda/bin/mpif77 \
-      MPIF90=/opt/conda/bin/mpif90 && \
-      make -j4 && \
-      make install && \
-      rm -rf "${PWD}/pnetcdf"
-
-WORKDIR /root/E3SM/cime/scripts
+RUN mkdir /root/.cime
 
 COPY config_machines.xml /root/.cime/
-COPY config_compilers.xml /root/.cime/
+COPY docker.cmake /root/.cime/
+
+FROM base as slurm
+
+RUN apt-get update && \
+            DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y --no-install-recommends \
+            munge slurmd slurm-client slurmctld && \
+            rm -rf /var/lib/apt/lists/*
+
+COPY slurm/slurm.conf /etc/slurm-llnl/
+COPY slurm/config_batch.xml /root/.cime/
+COPY slurm/config_machines.xml /root/.cime/
+COPY slurm/entrypoint.sh /entrypoint.sh
+
+ENTRYPOINT [ "/entrypoint.sh" ]
+
+FROM base as pbs
+
+RUN apt-get update && \
+            DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y --no-install-recommends \
+            curl ca-certificates software-properties-common \
+
+            gcc make libtool libhwloc-dev libx11-dev libxt-dev libedit-dev \
+            libical-dev ncurses-dev perl python-dev tcl-dev tk-dev swig libexpat-dev libssl-dev \
+            libxext-dev libxft-dev autoconf automake \
+
+            postgresql-12 postgresql-server-dev-all postgresql-contrib \
+
+            expat libedit2 python3 sendmail-bin sudo tcl tk && \
+            add-apt-repository ppa:deadsnakes/ppa && \
+            apt-get update && \
+            DEBIAN_FRONTEND=noninteractive \
+            apt-get install -y python3.7 python3.7-dev && \
+            rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+
+RUN curl -LO https://github.com/openpbs/openpbs/archive/refs/tags/v20.0.1.tar.gz && \
+            tar -xvf v20.0.1.tar.gz  && \
+            cd openpbs-20.0.1 && \
+            sed -i"" 's/\(#include "list_link.h"\)/\1\n#include <stddef.h>/' /src/openpbs-20.0.1/src/lib/Libifl/list_link.c && \
+            export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && \
+            ./autogen.sh && \
+            PYTHON=/usr/bin/python3.7 \
+            CFLAGS="`/usr/bin/python3.7m-config --cflags`" \
+            LDFLAGS="`/usr/bin/python3.7m-config --ldflags`" \
+            LIBS="-lpthread -lm -lpython3.7m" \
+            ./configure --prefix=/opt/pbs && \
+            make -j8 && \
+            make install
+
+COPY pbs/pbs.conf /etc/
+COPY pbs/config_batch.xml /root/.cime/
+COPY pbs/config_machines.xml /root/.cime/
+COPY pbs/entrypoint.sh /entrypoint.sh
+
+ENTRYPOINT [ "/entrypoint.sh" ]
+
+# Configure E3SM to run
+# RUN git clone https://github.com/E3SM-Project/E3SM && \
+        #           cd E3SM && \
+        #           sed -i"" "s/git@github.com:/https:\/\/github.com\//g" .gitmodules && \
+        #           git submodule update --init && \
+        #           find /root/E3SM -type f -iname Makefile -exec grep -nH '$(AR) $@' {} \; | \
+        #           cut -d":" -f1 | \
+        #           xargs sed -i'' 's/$(AR) $@/$(AR) rc $@/g'
