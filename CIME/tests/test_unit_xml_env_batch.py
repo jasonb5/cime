@@ -10,6 +10,36 @@ from CIME.XML.env_batch import EnvBatch
 
 class TestXMLEnvBatch(unittest.TestCase):
     @mock.patch("CIME.XML.env_batch.EnvBatch.get")
+    @mock.patch("CIME.XML.env_batch.EnvBatch._get_submit_arg_nodes")
+    def test_get_submit_args(self, _get_submit_arg_nodes, get):
+        _get_submit_arg_nodes.return_value = [
+            mock.MagicMock(),
+            mock.MagicMock(),
+            mock.MagicMock(),
+        ]
+
+        get.side_effect = [
+            "--time",
+            "$JOB_WALLCLOCK_TIME",
+            "--reservation=shortqos",
+            None,
+            "--test=",
+            "$$ENV{test}",
+        ]
+
+        case = mock.MagicMock()
+        case.get_value.side_effect = [
+            "01:00:00",
+        ]
+        case.get_resolved_value.side_effect = ["hello"]
+
+        batch = EnvBatch()
+
+        args = batch.get_submit_args(case, "case.run")
+
+        assert args == "  --time 01:00:00 --reservation=shortqos --test=hello"
+
+    @mock.patch("CIME.XML.env_batch.EnvBatch.get")
     def test_get_queue_specs(self, get):
         node = mock.MagicMock()
 

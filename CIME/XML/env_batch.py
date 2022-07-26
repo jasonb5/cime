@@ -553,18 +553,52 @@ class EnvBatch(EnvBase):
 
         return "\n".join(result)
 
+    def _get_submit_arg_nodes(self):
+        """_get_submit_arg_nodes."""
+        arg_nodes = []
+        nodes = self.get_children("batch_system")
+
+        for node in nodes:
+            submit_args_node = self.get_optional_child("submit_args", root=node)
+
+            if submit_args_node is not None:
+                arg_nodes += self.get_children("arg", root=submit_args_node)
+
+        return arg_nodes
+
+    def _resolve_arg_value(self, case, flag, val):
+        # Try to evaluate val if it contains any whitespace
+        if " " in val:
+            try:
+                rval = eval(val)
+            except Exception:
+                rval = val
+        else:
+            rval = val
+
+        # We don't want floating-point data
+        try:
+            rval = int(round(float(rval)))
+        except ValueError:
+            pass
+
+        # need a correction for tasks per node
+        if flag == "-n" and rval <= 0:
+            rval = 1
+
+        if flag == "-q" and rval == "batch" and case.get_value("MACH") == "blues":
+            # Special case. Do not provide '-q batch' for blues
+            # continue
+            raise ValueError()
+
+        return rval
+
     def get_submit_args(self, case, job):
         """
         return a list of touples (flag, name)
         """
         submitargs = " "
-        bs_nodes = self.get_children("batch_system")
-        submit_arg_nodes = []
-
-        for node in bs_nodes:
-            sanode = self.get_optional_child("submit_args", root=node)
-            if sanode is not None:
-                submit_arg_nodes += self.get_children("arg", root=sanode)
+        submit_arg_nodes = self._get_submit_arg_nodes()
 
         for arg in submit_arg_nodes:
             flag = self.get(arg, "flag")
@@ -589,31 +623,10 @@ class EnvBatch(EnvBase):
                     val = case.get_value(name, subgroup=job)
 
                 if val is not None and len(str(val)) > 0 and val != "None":
-                    # Try to evaluate val if it contains any whitespace
-                    if " " in val:
-                        try:
-                            rval = eval(val)
-                        except Exception:
-                            rval = val
-                    else:
-                        rval = val
-
-                    # We don't want floating-point data
                     try:
-                        rval = int(round(float(rval)))
+                        rval = self._resolve_arg_value(case, flag, val)
                     except ValueError:
-                        pass
-
-                    # need a correction for tasks per node
-                    if flag == "-n" and rval <= 0:
-                        rval = 1
-
-                    if (
-                        flag == "-q"
-                        and rval == "batch"
-                        and case.get_value("MACH") == "blues"
-                    ):
-                        # Special case. Do not provide '-q batch' for blues
+                        # Raised on special case for blues server
                         continue
 
                     if (
