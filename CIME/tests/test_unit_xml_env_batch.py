@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import io
+import tempfile
 import unittest
 from unittest import mock
 
@@ -9,35 +11,60 @@ from CIME.XML.env_batch import EnvBatch
 
 
 class TestXMLEnvBatch(unittest.TestCase):
-    @mock.patch("CIME.XML.env_batch.EnvBatch.get")
-    @mock.patch("CIME.XML.env_batch.EnvBatch._get_submit_arg_nodes")
-    def test_get_submit_args(self, _get_submit_arg_nodes, get):
-        _get_submit_arg_nodes.return_value = [
-            mock.MagicMock(),
-            mock.MagicMock(),
-            mock.MagicMock(),
-        ]
+    def test_get_submit_args(self):
+        with tempfile.NamedTemporaryFile() as tf:
+            tf.write(
+                b"""<?xml version="1.0"?>
+<file id="env_batch.xml" version="2.0">
+  <header>
+      These variables may be changed anytime during a run, they
+      control arguments to the batch submit command.
+    </header>
+  <group id="config_batch">
+    <entry id="BATCH_SYSTEM" value="none">
+      <type>char</type>
+      <valid_values>miller_slurm,nersc_slurm,lc_slurm,moab,pbs,lsf,slurm,cobalt,cobalt_theta,none</valid_values>
+      <desc>The batch system type to use for this machine.</desc>
+    </entry>
+  </group>
+  <group id="job_submission">
+    <entry id="PROJECT_REQUIRED" value="FALSE">
+      <type>logical</type>
+      <valid_values>TRUE,FALSE</valid_values>
+      <desc>whether the PROJECT value is required on this machine</desc>
+    </entry>
+  </group>
+  <batch_system type="none">
+    <batch_query args=""/>
+    <batch_submit/>
+    <batch_cancel/>
+    <batch_redirect/>
+    <batch_directive/>
+    <submit_args>
+      <arg flag="--time" name="$JOB_WALLCLOCK_TIME"/>
+      <arg flag="-p" name="$JOB_QUEUE"/>
+      <arg flag="--account" name="$PROJECT"/>
+    </submit_args>
+    <directives>
+      <directive/>
+    </directives>
+  </batch_system>
+</file>"""
+            )
+            tf.seek(0)
 
-        get.side_effect = [
-            "--time",
-            "$JOB_WALLCLOCK_TIME",
-            "--reservation=shortqos",
-            None,
-            "--test=",
-            "$$ENV{test}",
-        ]
+            batch = EnvBatch(infile=tf.name, read_only=False)
 
-        case = mock.MagicMock()
-        case.get_value.side_effect = [
-            "01:00:00",
-        ]
-        case.get_resolved_value.side_effect = ["hello"]
+            case = mock.MagicMock()
+            case.get_value.side_effect = [
+                "01:00:00",
+                "debug",
+                "test_project",
+            ]
 
-        batch = EnvBatch()
+            submit_args = batch.get_submit_args(case, "case.run")
 
-        args = batch.get_submit_args(case, "case.run")
-
-        assert args == "  --time 01:00:00 --reservation=shortqos --test=hello"
+        assert submit_args == "  --time 01:00:00 -p debug --account test_project"
 
     @mock.patch("CIME.XML.env_batch.EnvBatch.get")
     def test_get_queue_specs(self, get):
