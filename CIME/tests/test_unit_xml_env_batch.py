@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import io
 import tempfile
 import unittest
 from unittest import mock
@@ -44,6 +43,8 @@ class TestXMLEnvBatch(unittest.TestCase):
       <arg flag="--time" name="$JOB_WALLCLOCK_TIME"/>
       <arg flag="-p" name="$JOB_QUEUE"/>
       <arg flag="--account" name="$PROJECT"/>
+      <arg flag="-n" name=" $TOTALPES/$MAX_MPITASKS_PER_NODE"/>
+      <arg flag="--mode script"/>
     </submit_args>
     <directives>
       <directive/>
@@ -56,6 +57,7 @@ class TestXMLEnvBatch(unittest.TestCase):
             batch = EnvBatch(infile=tf.name, read_only=False)
 
             case = mock.MagicMock()
+            case.get_resolved_value.return_value = "5"
             case.get_value.side_effect = [
                 "01:00:00",
                 "debug",
@@ -64,7 +66,7 @@ class TestXMLEnvBatch(unittest.TestCase):
 
             submit_args = batch.get_submit_args(case, "case.run")
 
-        assert submit_args == "  --time 01:00:00 -p debug --account test_project"
+        assert submit_args == "  --time 01:00:00 -p debug --account test_project -n 5 --mode script"
 
     @mock.patch("CIME.XML.env_batch.EnvBatch.get")
     def test_get_queue_specs(self, get):
