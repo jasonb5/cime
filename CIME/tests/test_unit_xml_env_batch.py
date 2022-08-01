@@ -66,7 +66,10 @@ class TestXMLEnvBatch(unittest.TestCase):
 
             submit_args = batch.get_submit_args(case, "case.run")
 
-        assert submit_args == "  --time 01:00:00 -p debug --account test_project -n 5 --mode script"
+        assert (
+            submit_args
+            == "  --time 01:00:00 -p debug --account test_project -n 5 --mode script"
+        )
 
     @mock.patch("CIME.XML.env_batch.EnvBatch.get")
     def test_get_queue_specs(self, get):
