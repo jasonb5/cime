@@ -566,15 +566,15 @@ class EnvBatch(EnvBase):
 
         return arg_nodes
 
-    def _resolve_arg_value(self, case, flag, val):
+    def _resolve_arg_value(self, name, value):
         # Try to evaluate val if it contains any whitespace
-        if " " in val:
+        if " " in value:
             try:
-                rval = eval(val)
+                rval = eval(value)
             except Exception:
-                rval = val
+                rval = value
         else:
-            rval = val
+            rval = value
 
         # We don't want floating-point data
         try:
@@ -583,59 +583,65 @@ class EnvBatch(EnvBase):
             pass
 
         # need a correction for tasks per node
-        if flag == "-n" and rval <= 0:
+        if name == "-n" and rval <= 0:
             rval = 1
 
-        if flag == "-q" and rval == "batch" and case.get_value("MACH") == "blues":
-            # Special case. Do not provide '-q batch' for blues
-            # continue
-            raise ValueError()
-
         return rval
+
+    def _split_arg(self, arg):
+        # handle --name value
+        divider = " "
+        items = arg.split(divider)
+
+        if len(items) < 2:
+            # handles --name=value
+            divider = "="
+            items = arg.split(divider)
+
+        if len(items) != 2:
+            raise utils.CIMEError(
+                "Could not parse argument {!r}, expecting format `name=value` or `name value`".format(
+                    arg
+                )
+            )
+
+        return divider, items[0].strip(), items[1].strip()
 
     def get_submit_args(self, case, job):
         """
         return a list of touples (flag, name)
         """
-        submitargs = " "
+        submitargs = ""
         submit_arg_nodes = self._get_submit_arg_nodes()
+        mach = case.get_value("MACH")
 
-        for arg in submit_arg_nodes:
-            flag = self.get(arg, "flag")
-            name = self.get(arg, "name")
+        for i, arg_node in enumerate(submit_arg_nodes):
+            arg = self.text(arg_node)
+
+            divider, name, value = self._split_arg(arg)
+
             if self._batchtype == "cobalt" and job == "case.st_archive":
-                if flag == "-n":
-                    name = "task_count"
-                if flag == "--mode":
+                if name == "-n":
+                    value = "task_count"
+                if name == "--mode":
                     continue
 
-            if name is None:
-                submitargs += " {}".format(flag)
+            if "$" in value:
+                # We have a complex expression and must rely on get_resolved_value.
+                # Hopefully, none of the values require subgroup
+                value = case.get_resolved_value(value)
             else:
-                if name.startswith("$"):
-                    name = name[1:]
+                value = case.get_value(value, subgroup=job)
 
-                if "$" in name:
-                    # We have a complex expression and must rely on get_resolved_value.
-                    # Hopefully, none of the values require subgroup
-                    val = case.get_resolved_value(name)
-                else:
-                    val = case.get_value(name, subgroup=job)
+            if value is not None and len(str(value)) > 0 and value != "None":
+                if name == "-q" and value == "batch" and mach == "blues":
+                    continue
 
-                if val is not None and len(str(val)) > 0 and val != "None":
-                    try:
-                        rval = self._resolve_arg_value(case, flag, val)
-                    except ValueError:
-                        # Raised on special case for blues server
-                        continue
+                value = self._resolve_arg_value(name, value)
 
-                    if (
-                        flag.rfind("=", len(flag) - 1, len(flag)) >= 0
-                        or flag.rfind(":", len(flag) - 1, len(flag)) >= 0
-                    ):
-                        submitargs += " {}{}".format(flag, str(rval).strip())
-                    else:
-                        submitargs += " {} {}".format(flag, str(rval).strip())
+                prefix = " " if i > 0 else ""
+
+                submitargs += f"{prefix}{name}{divider}{value}"
 
         return submitargs
 

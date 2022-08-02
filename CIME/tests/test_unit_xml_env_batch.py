@@ -40,11 +40,13 @@ class TestXMLEnvBatch(unittest.TestCase):
     <batch_redirect/>
     <batch_directive/>
     <submit_args>
-      <arg flag="--time" name="$JOB_WALLCLOCK_TIME"/>
-      <arg flag="-p" name="$JOB_QUEUE"/>
-      <arg flag="--account" name="$PROJECT"/>
-      <arg flag="-n" name=" $TOTALPES/$MAX_MPITASKS_PER_NODE"/>
-      <arg flag="--mode script"/>
+      <arg>--cwd CASEROOT</arg>
+      <arg>-l walltime=$JOB_WALLCLOCK_TIME</arg>
+      <arg>--time $JOB_WALLCLOCK_TIME</arg>
+      <arg>-p $JOB_QUEUE</arg>
+      <arg>--account $PROJECT</arg>
+      <arg>-n $TOTALPOS/$MAX_MPITASKS_PER_NODE</arg>
+      <arg>--mode script</arg>
     </submit_args>
     <directives>
       <directive/>
@@ -57,18 +59,24 @@ class TestXMLEnvBatch(unittest.TestCase):
             batch = EnvBatch(infile=tf.name, read_only=False)
 
             case = mock.MagicMock()
-            case.get_resolved_value.return_value = "5"
-            case.get_value.side_effect = [
+            case.get_resolved_value.side_effect = [
+                "walltime=01:00:00",
                 "01:00:00",
                 "debug",
                 "test_project",
+                "5",
+            ]
+            case.get_value.side_effect = [
+                "docker",
+                "/tmp/caseroot",
+                "script",
             ]
 
             submit_args = batch.get_submit_args(case, "case.run")
 
         assert (
             submit_args
-            == "  --time 01:00:00 -p debug --account test_project -n 5 --mode script"
+            == "--cwd /tmp/caseroot -l walltime=01:00:00 --time 01:00:00 -p debug --account test_project -n 5 --mode script"
         )
 
     @mock.patch("CIME.XML.env_batch.EnvBatch.get")

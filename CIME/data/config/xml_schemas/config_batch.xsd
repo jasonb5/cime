@@ -128,18 +128,12 @@
   <xs:element name="submit_args">
     <xs:complexType>
       <xs:sequence>
-        <xs:element maxOccurs="unbounded" ref="arg"/>
+        <xs:element ref="arg" minOccurs="0" maxOccurs="unbounded" />
       </xs:sequence>
     </xs:complexType>
   </xs:element>
 
-
-  <xs:element name="arg">
-    <xs:complexType>
-      <xs:attribute name="flag" use="required"/>
-      <xs:attribute name="name"/>
-    </xs:complexType>
-  </xs:element>
+  <xs:element name="arg" />
 
   <xs:element name="directives">
     <xs:complexType>
