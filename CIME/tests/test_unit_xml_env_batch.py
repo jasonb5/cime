@@ -10,6 +10,79 @@ from CIME.XML.env_batch import EnvBatch
 
 
 class TestXMLEnvBatch(unittest.TestCase):
+    def test_get_submit_args_queue_selector(self):
+        with tempfile.NamedTemporaryFile() as tf:
+            tf.write(
+                b"""<?xml version="1.0"?>
+<file id="env_batch.xml" version="2.0">
+  <header>
+      These variables may be changed anytime during a run, they
+      control arguments to the batch submit command.
+    </header>
+  <group id="config_batch">
+    <entry id="BATCH_SYSTEM" value="none">
+      <type>char</type>
+      <valid_values>miller_slurm,nersc_slurm,lc_slurm,moab,pbs,lsf,slurm,cobalt,cobalt_theta,none</valid_values>
+      <desc>The batch system type to use for this machine.</desc>
+    </entry>
+  </group>
+  <group id="job_submission">
+    <entry id="PROJECT_REQUIRED" value="FALSE">
+      <type>logical</type>
+      <valid_values>TRUE,FALSE</valid_values>
+      <desc>whether the PROJECT value is required on this machine</desc>
+    </entry>
+  </group>
+  <batch_system type="none">
+    <batch_query args=""/>
+    <batch_submit/>
+    <batch_cancel/>
+    <batch_redirect/>
+    <batch_directive/>
+    <submit_args>
+      <arg>--cwd CASEROOT</arg>
+      <arg>-l walltime=$JOB_WALLCLOCK_TIME</arg>
+      <arg>--time $JOB_WALLCLOCK_TIME</arg>
+      <arg>-p $JOB_QUEUE</arg>
+      <arg>--account $PROJECT</arg>
+      <arg>-n $TOTALPOS/$MAX_MPITASKS_PER_NODE</arg>
+      <arg>--mode script</arg>
+      <arg queue="fast">--reservation=short</arg>
+      <arg queue="slow">--reservation=takeyourtime</arg>
+    </submit_args>
+    <directives>
+      <directive/>
+    </directives>
+  </batch_system>
+</file>"""
+            )
+            tf.seek(0)
+
+            batch = EnvBatch(infile=tf.name, read_only=False)
+
+            case = mock.MagicMock()
+            case.get_resolved_value.side_effect = [
+                "walltime=01:00:00",
+                "01:00:00",
+                "debug",
+                "test_project",
+                "5",
+            ]
+            case.get_value.side_effect = [
+                "docker",
+                "fast",
+                "/tmp/caseroot",
+                "script",
+                "short",
+            ]
+
+            submit_args = batch.get_submit_args(case, "case.run")
+
+        assert (
+            submit_args
+            == "--cwd /tmp/caseroot -l walltime=01:00:00 --time 01:00:00 -p debug --account test_project -n 5 --mode script --reservation=short"
+        )
+
     def test_get_submit_args(self):
         with tempfile.NamedTemporaryFile() as tf:
             tf.write(
@@ -47,6 +120,7 @@ class TestXMLEnvBatch(unittest.TestCase):
       <arg>--account $PROJECT</arg>
       <arg>-n $TOTALPOS/$MAX_MPITASKS_PER_NODE</arg>
       <arg>--mode script</arg>
+      <arg queue="fast">--reservation=short</arg>
     </submit_args>
     <directives>
       <directive/>
@@ -68,8 +142,10 @@ class TestXMLEnvBatch(unittest.TestCase):
             ]
             case.get_value.side_effect = [
                 "docker",
+                None,
                 "/tmp/caseroot",
                 "script",
+                "test",
             ]
 
             submit_args = batch.get_submit_args(case, "case.run")

@@ -614,8 +614,16 @@ class EnvBatch(EnvBase):
         submitargs = ""
         submit_arg_nodes = self._get_submit_arg_nodes()
         mach = case.get_value("MACH")
+        queue = case.get_value("QUEUE")
 
         for i, arg_node in enumerate(submit_arg_nodes):
+            arg_queue = self.get(arg_node, "queue")
+
+            if (queue is None and arg_queue is not None) or (
+                queue is not None and arg_queue is not None and queue != arg_queue
+            ):
+                continue
+
             arg = self.text(arg_node)
 
             divider, name, value = self._split_arg(arg)
