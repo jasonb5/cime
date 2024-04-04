@@ -1,13 +1,15 @@
 <!DOCTYPE html>
-<html class="writer-html5" lang="en" >
+<html class="writer-html5" lang="en" data-content_root="../">
 <head>
-  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>code_checker &mdash; CIME master documentation</title>
-      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
-      <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
+      <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=d05bb7fd" />
+
+  
   <!--[if lt IE 9]>
     <script src="../_static/js/html5shiv.min.js"></script>
   <![endif]-->
@@ -147,7 +149,14 @@
 <div class="toctree-wrapper compound">
 </div>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ ./code_checker --help
-ERROR: pylint not found
+Traceback (most recent call last):
+  File &quot;/home/runner/work/cime/cime/CIME/Tools/./code_checker&quot;, line 8, in &lt;module&gt;
+    from standard_script_setup import *
+  File &quot;/home/runner/work/cime/cime/CIME/Tools/standard_script_setup.py&quot;, line 42, in &lt;module&gt;
+    import CIME.utils
+  File &quot;/home/runner/work/cime/cime/CIME/utils.py&quot;, line 15, in &lt;module&gt;
+    from distutils import file_util
+ModuleNotFoundError: No module named &#39;distutils&#39;
 </pre></div>
 </div>
 </section>

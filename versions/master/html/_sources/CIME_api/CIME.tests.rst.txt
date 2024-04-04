@@ -180,6 +180,22 @@ CIME.tests.test\_unit\_aprun module
    :undoc-members:
    :show-inheritance:
 
+CIME.tests.test\_unit\_baselines\_performance module
+----------------------------------------------------
+
+.. automodule:: CIME.tests.test_unit_baselines_performance
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+CIME.tests.test\_unit\_bless\_test\_results module
+--------------------------------------------------
+
+.. automodule:: CIME.tests.test_unit_bless_test_results
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 CIME.tests.test\_unit\_case module
 ----------------------------------
 
@@ -192,6 +208,14 @@ CIME.tests.test\_unit\_case\_fake module
 ----------------------------------------
 
 .. automodule:: CIME.tests.test_unit_case_fake
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+CIME.tests.test\_unit\_case\_run module
+---------------------------------------
+
+.. automodule:: CIME.tests.test_unit_case_run
    :members:
    :undoc-members:
    :show-inheritance:
